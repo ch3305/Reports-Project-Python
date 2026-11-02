@@ -1,34 +1,42 @@
-from abc import ABC, abstractmethod
 import pdfplumber
 from src.domain.models import AttendanceReport
+from src.parsing.ocr import OCRProcessor
 
 
-class BaseParser(ABC):
+class BaseParser:
+
+  def __init__(self, pdf_path: str):
+    self.pdf_path = pdf_path
+    self.ocr_processor = OCRProcessor()
+
+  def extract_text(self) -> str:
+    """שלב ראשון: מנסה לחלץ טקסט דיגיטלי ישירות דרך pdfplumber.
+
+    אם הקובץ סרוק והתוצאה ריקה, מפעיל OCR מלא (תחנה 1).
     """
-    מחלקת אב אבסטרקטיבית לכל הפארסרים במערכת.
+    text = ""
+    try:
+      with pdfplumber.open(self.pdf_path) as pdf:
+        for page in pdf.pages:
+          page_text = page.extract_text()
+          if page_text:
+            text += page_text + "\n"
+    except Exception:
+      pass
+
+    # אם לא נמצא טקסט דיגיטלי (PDF סרוק / תמונה), נפעיל את תחנת ה-OCR
+    if not text.strip():
+      text = self.ocr_processor.extract_text(self.pdf_path)
+
+    return text
+
+  def parse(self) -> AttendanceReport:
+    """מתודת מעטפת אחידה (Interface) המאפשרת ל-Main לקרוא ל-parse()
+
+    מבלי לדעת באיזה סוג דוח מדובר, ומפעילה את הניתוח של המחלקה הספציפית.
     """
+    return self.parse_report()
 
-    def __init__(self, pdf_path: str):
-        self.pdf_path = pdf_path
-
-    def extract_text(self) -> str:
-        """
-        חילוץ טקסט גולמי מכל עמודי קובץ ה-PDF באמצעות pdfplumber.
-        """
-        full_text = ""
-        try:
-            with pdfplumber.open(self.pdf_path) as pdf:
-                for page in pdf.pages:
-                    text = page.extract_text()
-                    if text:
-                        full_text += text + "\n"
-        except Exception as e:
-            print(f"Error extracting PDF text: {e}")
-        return full_text
-
-    @abstractmethod
-    def parse_report(self) -> AttendanceReport:
-        pass
-
-    def parse(self) -> AttendanceReport:
-        return self.parse_report()
+  def parse_report(self) -> AttendanceReport:
+    """מתודה שאותה מממש כל פרסר ספציפי (TypeA / TypeB)."""
+    raise NotImplementedError("יש לממש מתודה זו במחלקה היורשת")
