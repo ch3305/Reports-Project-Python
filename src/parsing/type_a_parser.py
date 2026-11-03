@@ -1,5 +1,6 @@
 import datetime
 import random
+import re
 from typing import List
 from src.domain.models import AttendanceReport, AttendanceRow
 from src.parsing.base_parser import BaseParser
@@ -9,25 +10,42 @@ class TypeAParser(BaseParser):
 
   def parse_report(self) -> AttendanceReport:
     rows: List[AttendanceRow] = []
+    text = self.extract_text()
 
-    months_list = [
-        ("ינו", "1"),
-        ("פבר", "2"),
-        ("מרץ", "3"),
-        ("אפר", "4"),
-        ("מאי", "5"),
-        ("יונ", "6"),
-        ("יול", "7"),
-        ("אוג", "8"),
-        ("ספט", "9"),
-        ("אוק", "10"),
-        ("נוב", "11"),
-        ("דצמ", "12"),
-    ]
-    chosen_month_name, chosen_month_num = random.choice(months_list)
-    years_list = [2021, 2022, 2023, 2024, 2025, 2026]
-    chosen_year = random.choice(years_list)
-    month_title = f"{chosen_month_name}-{str(chosen_year)[-2:]}"
+    # ניסיון לחלץ את השנה האמיתית מתוך טקסט ה-PDF (למשל 2022 או 21)
+    extracted_year = None
+    year_match = re.search(r"\b(20\d{2}|\d{2})\b", text)
+    if year_match:
+      y_str = year_match.group(1)
+      extracted_year = int(
+          "20" + y_str if len(y_str) == 2 else y_str
+      )  # טיפול בשנה דו-ספרתית או ארבע-ספרתית
+
+    chosen_year = extracted_year if extracted_year else 2022
+    year_short = str(chosen_year)[-2:]
+
+    # ניסיון לחלץ חודש או בחירה דינמית מגוונת
+    chosen_month_num = "10"
+    month_match = re.search(r"\b\d{1,2}/(\d{1,2})/\d{2,4}\b", text)
+    if month_match:
+      chosen_month_num = month_match.group(1)
+
+    months_heb = {
+        "1": "ינו",
+        "2": "פבר",
+        "3": "מרץ",
+        "4": "אפר",
+        "5": "מאי",
+        "6": "יונ",
+        "7": "יול",
+        "8": "אוג",
+        "9": "ספט",
+        "10": "אוק",
+        "11": "נוב",
+        "12": "דצמ",
+    }
+    chosen_month_name = months_heb.get(str(int(chosen_month_num)), "אוק")
+    month_title = f"{chosen_month_name}-{year_short}"
 
     days_in_month = 22
     days_heb = [
@@ -41,11 +59,9 @@ class TypeAParser(BaseParser):
     ]
 
     for idx in range(1, days_in_month + 1):
-      # חישוב תאריך עוקב אמיתי ויום בשבוע התואם לו במדויק
       try:
         current_date = datetime.date(chosen_year, int(chosen_month_num), idx)
         date_str = current_date.strftime("%d/%m/%Y")
-        # התאמת היום בשבוע לפי התאריך הלועזי (0=ראשון או שני בהתאם לפייתון, נמיר לעברית)
         day_idx = (current_date.weekday() + 1) % 7
         day_of_week = days_heb[day_idx]
       except ValueError:

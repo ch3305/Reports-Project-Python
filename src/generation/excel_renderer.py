@@ -138,7 +138,7 @@ class ExcelRenderer:
         cell.alignment = Alignment(horizontal="center", vertical="center")
       current_row += 1
 
-    # Type A: טבלת הסיכום התחתונה (מופיעה למטה מתחת לטבלה)[cite: 5]
+    # Type A: טבלת הסיכום התחתונה - תוקן סדר העמודות (תווית בעמודה 1, ערך בעמודה 2)
     if report.report_type == "Type_A":
       current_row += 2
       summary_headers = [
@@ -152,8 +152,12 @@ class ExcelRenderer:
           ("נסיעות", report.travel),
       ]
       for label, val in summary_headers:
-        lbl_cell = ws.cell(row=current_row, column=2, value=label)
-        val_cell = ws.cell(row=current_row, column=1, value=val)
+        lbl_cell = ws.cell(
+            row=current_row, column=1, value=label
+        )  # עמודה A (מימין) לתווית
+        val_cell = ws.cell(
+            row=current_row, column=2, value=val
+        )  # עמודה B (שמאל) לערך
         lbl_cell.font = bold_font
         lbl_cell.border = thin_border
         lbl_cell.fill = header_fill
